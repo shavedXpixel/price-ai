@@ -12,7 +12,6 @@ interface Product {
   image: string;
 }
 
-// We define 3 sorting states
 type SortState = "default" | "asc" | "desc";
 
 function SearchResults() {
@@ -22,14 +21,12 @@ function SearchResults() {
   
   const [results, setResults] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
-  
-  // New: Start with "default" state
   const [sortState, setSortState] = useState<SortState>("default");
 
   useEffect(() => {
     if (query) {
       setLoading(true);
-      fetch(`https://price-ai.onrender.com/search/${query}`)
+      fetch(`https://price-ai-backend.onrender.com/search/${query}`)
         .then((res) => res.json())
         .then((data) => {
           setResults(data.results);
@@ -44,31 +41,34 @@ function SearchResults() {
 
   // Helper: Extract number from price string
   const getPriceValue = (priceStr: string) => {
-    if (!priceStr) return 0;
+    if (!priceStr) return Infinity; // Use Infinity so invalid prices are never "lowest"
     const cleanString = priceStr.replace(/[^0-9.]/g, "");
-    return parseFloat(cleanString) || 0;
+    return parseFloat(cleanString) || Infinity;
   };
 
-  // 🔹 Advanced Sorting Logic
+  // 🔹 Find the Lowest Price in the entire list
+  const lowestPrice = results.length > 0 
+    ? Math.min(...results.map(item => getPriceValue(item.price))) 
+    : 0;
+
+  // Sorting Logic
   const displayResults = [...results].sort((a, b) => {
-    if (sortState === "default") return 0; // Don't sort, keep original order
+    if (sortState === "default") return 0;
     
     const priceA = getPriceValue(a.price);
     const priceB = getPriceValue(b.price);
 
     return sortState === "asc" 
-      ? priceA - priceB  // Low to High
-      : priceB - priceA; // High to Low
+      ? priceA - priceB
+      : priceB - priceA;
   });
 
-  // 🔹 Cycle function: Default -> Asc -> Desc -> Default
   const toggleSort = () => {
     if (sortState === "default") setSortState("asc");
     else if (sortState === "asc") setSortState("desc");
     else setSortState("default");
   };
 
-  // 🔹 Dynamic Button Text
   const getSortLabel = () => {
     if (sortState === "asc") return "Price: Low to High 📉";
     if (sortState === "desc") return "Price: High to Low 📈";
@@ -98,8 +98,6 @@ function SearchResults() {
             </div>
 
             <div className="flex items-center gap-4">
-              
-              {/* 🔹 3-Way Sort Button */}
               <button
                 onClick={toggleSort}
                 className={`px-6 py-3 rounded-xl font-bold text-sm transition-all active:scale-95 flex items-center gap-2
@@ -111,7 +109,6 @@ function SearchResults() {
                 {getSortLabel()}
               </button>
 
-              {/* Theme Toggle */}
               <button
                 onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
                 className="w-12 h-12 rounded-full flex items-center justify-center text-xl transition-all
@@ -133,65 +130,83 @@ function SearchResults() {
         ) : (
           /* Grid */
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
-            {displayResults.map((item, index) => (
-              <div 
-                key={index} 
-                className="rounded-[2.5rem] p-4 flex flex-col group transition-all duration-300 hover:-translate-y-2
-                bg-[#f0f4f8] dark:bg-[#1e293b]
-                shadow-[12px_12px_24px_#cdd4db,-12px_-12px_24px_#ffffff]
-                dark:shadow-[12px_12px_24px_#0f172a,-12px_-12px_24px_#2d3b55]"
-              >
-                {/* Image */}
-                <div className="h-48 rounded-[2rem] flex items-center justify-center relative p-4 mb-4 overflow-hidden
-                   bg-[#f0f4f8] dark:bg-[#1e293b]
-                   shadow-[inset_6px_6px_12px_#cdd4db,inset_-6px_-6px_12px_#ffffff]
-                   dark:shadow-[inset_6px_6px_12px_#0f172a,inset_-6px_-6px_12px_#2d3b55]">
-                    
-                    <span className="absolute top-4 left-4 px-3 py-1 text-[10px] font-extrabold text-blue-500 rounded-full uppercase tracking-wider
-                      bg-[#f0f4f8] dark:bg-[#1e293b]
-                      shadow-[4px_4px_8px_#cdd4db,-4px_-4px_8px_#ffffff]
-                      dark:shadow-[4px_4px_8px_#0f172a,-4px_-4px_8px_#2d3b55]">
-                        {item.source}
-                    </span>
-                    
-                    {item.image ? (
-                        <img 
-                            src={item.image} 
-                            alt={item.name} 
-                            className="h-full w-full object-contain mix-blend-multiply dark:mix-blend-normal" 
-                        />
-                    ) : (
-                        <div className="text-gray-300 text-xs">No Image</div>
-                    )}
-                </div>
+            {displayResults.map((item, index) => {
+              
+              // Check if this item is the cheapest
+              const isCheapest = getPriceValue(item.price) === lowestPrice;
 
-                {/* Details */}
-                <div className="px-2 flex-1 flex flex-col justify-between">
-                  <h3 className="font-bold text-gray-700 dark:text-gray-200 text-md leading-snug mb-3 line-clamp-2" title={item.name}>
-                    {item.name}
-                  </h3>
+              return (
+                <div 
+                  key={index} 
+                  className={`relative rounded-[2.5rem] p-4 flex flex-col group transition-all duration-300 hover:-translate-y-2
+                  bg-[#f0f4f8] dark:bg-[#1e293b]
+                  shadow-[12px_12px_24px_#cdd4db,-12px_-12px_24px_#ffffff]
+                  dark:shadow-[12px_12px_24px_#0f172a,-12px_-12px_24px_#2d3b55]
+                  ${isCheapest ? "ring-2 ring-red-500/50" : ""}`} // Add subtle red ring to winner
+                >
                   
-                  <div className="flex items-end justify-between mt-2">
-                     <div>
-                        <p className="text-xs text-gray-400 font-bold mb-1">BEST PRICE</p>
-                        <p className="text-2xl font-black text-gray-800 dark:text-gray-100">
-                            {item.displayPrice || `₹${item.price}`}
-                        </p>
-                     </div>
-                     <a 
-                       href={item.link} 
-                       target="_blank"
-                       rel="noopener noreferrer"
-                       className="text-white w-10 h-10 rounded-full flex items-center justify-center hover:scale-110 transition-transform bg-blue-500
-                       shadow-[4px_4px_8px_#cdd4db,-4px_-4px_8px_#ffffff]
-                       dark:shadow-[4px_4px_8px_#0f172a,-4px_-4px_8px_#2d3b55]"
-                     >
-                       ➔
-                     </a>
+                  {/* 🏆 BEST DEAL BADGE 🏆 */}
+                  {isCheapest && (
+                    <div className="absolute -top-3 -right-3 bg-gradient-to-r from-red-500 to-orange-500 text-white font-black text-xs px-4 py-2 rounded-full shadow-lg z-10 animate-pulse">
+                      🏆 LOWEST PRICE
+                    </div>
+                  )}
+
+                  {/* Image */}
+                  <div className="h-48 rounded-[2rem] flex items-center justify-center relative p-4 mb-4 overflow-hidden
+                     bg-[#f0f4f8] dark:bg-[#1e293b]
+                     shadow-[inset_6px_6px_12px_#cdd4db,inset_-6px_-6px_12px_#ffffff]
+                     dark:shadow-[inset_6px_6px_12px_#0f172a,inset_-6px_-6px_12px_#2d3b55]">
+                      
+                      <span className="absolute top-4 left-4 px-3 py-1 text-[10px] font-extrabold text-blue-500 rounded-full uppercase tracking-wider
+                        bg-[#f0f4f8] dark:bg-[#1e293b]
+                        shadow-[4px_4px_8px_#cdd4db,-4px_-4px_8px_#ffffff]
+                        dark:shadow-[4px_4px_8px_#0f172a,-4px_-4px_8px_#2d3b55]">
+                          {item.source}
+                      </span>
+                      
+                      {item.image ? (
+                          <img 
+                              src={item.image} 
+                              alt={item.name} 
+                              className="h-full w-full object-contain mix-blend-multiply dark:mix-blend-normal" 
+                          />
+                      ) : (
+                          <div className="text-gray-300 text-xs">No Image</div>
+                      )}
+                  </div>
+
+                  {/* Details */}
+                  <div className="px-2 flex-1 flex flex-col justify-between">
+                    <h3 className="font-bold text-gray-700 dark:text-gray-200 text-md leading-snug mb-3 line-clamp-2" title={item.name}>
+                      {item.name}
+                    </h3>
+                    
+                    <div className="flex items-end justify-between mt-2">
+                       <div>
+                          <p className="text-xs text-gray-400 font-bold mb-1">
+                             {isCheapest ? <span className="text-red-500">🔥 BEST DEAL</span> : "PRICE"}
+                          </p>
+                          <p className={`text-2xl font-black ${isCheapest ? "text-red-500" : "text-gray-800 dark:text-gray-100"}`}>
+                              {item.displayPrice || `₹${item.price}`}
+                          </p>
+                       </div>
+                       <a 
+                         href={item.link} 
+                         target="_blank"
+                         rel="noopener noreferrer"
+                         className={`text-white w-10 h-10 rounded-full flex items-center justify-center hover:scale-110 transition-transform
+                         shadow-[4px_4px_8px_#cdd4db,-4px_-4px_8px_#ffffff]
+                         dark:shadow-[4px_4px_8px_#0f172a,-4px_-4px_8px_#2d3b55]
+                         ${isCheapest ? "bg-red-500" : "bg-blue-500"}`} // Red button for winner
+                       >
+                         ➔
+                       </a>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
