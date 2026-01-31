@@ -47,6 +47,24 @@ function SearchResults() {
     }
   }, [query]);
 
+  // 🔹 Link Repair Function
+  const getSafeLink = (link: string, source: string) => {
+    if (!link) return "#"; // No link? Stay here.
+    
+    // If it's already a full URL, use it
+    if (link.startsWith("http") || link.startsWith("https")) return link;
+
+    // If it's a relative link (starts with /), attach the correct domain
+    const lowerSource = source ? source.toLowerCase() : "";
+    
+    if (lowerSource.includes("amazon")) return `https://www.amazon.in${link}`;
+    if (lowerSource.includes("flipkart")) return `https://www.flipkart.com${link}`;
+    if (lowerSource.includes("croma")) return `https://www.croma.com${link}`;
+    if (lowerSource.includes("reliance")) return `https://www.reliancedigital.in${link}`;
+
+    return link; // Fallback
+  };
+
   const stores = ["All", ...Array.from(new Set(results.map(r => r.source)))];
 
   const getPriceValue = (priceStr: string) => {
@@ -161,6 +179,9 @@ function SearchResults() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
             {displayResults.map((item, index) => {
               const isCheapest = getPriceValue(item.price) === lowestPrice;
+              
+              // 🔹 Generate the Safe Link
+              const safeLink = getSafeLink(item.link, item.source);
 
               return (
                 <div 
@@ -178,7 +199,7 @@ function SearchResults() {
                     </div>
                   )}
 
-                  {/* 🔹 CLICKABLE IMAGE */}
+                  {/* Image */}
                   <div className="h-48 rounded-[2rem] flex items-center justify-center relative p-4 mb-4 overflow-hidden
                      bg-[#f0f4f8] dark:bg-[#1e293b]
                      shadow-[inset_6px_6px_12px_#cdd4db,inset_-6px_-6px_12px_#ffffff]
@@ -189,7 +210,7 @@ function SearchResults() {
                       </span>
                       
                       {item.image ? (
-                        <a href={item.link} target="_blank" rel="noopener noreferrer" className="h-full w-full flex items-center justify-center">
+                        <a href={safeLink} target="_blank" rel="noopener noreferrer" className="h-full w-full flex items-center justify-center">
                           <img src={item.image} alt={item.name} className="h-full w-full object-contain mix-blend-multiply dark:mix-blend-normal transition-transform hover:scale-110" />
                         </a>
                       ) : (
@@ -200,8 +221,7 @@ function SearchResults() {
                   {/* Details */}
                   <div className="px-2 flex-1 flex flex-col justify-between">
                     <div>
-                        {/* 🔹 CLICKABLE TITLE */}
-                        <a href={item.link} target="_blank" rel="noopener noreferrer">
+                        <a href={safeLink} target="_blank" rel="noopener noreferrer">
                           <h3 className="font-bold text-gray-700 dark:text-gray-200 text-md leading-snug mb-2 line-clamp-2 hover:text-blue-500 transition-colors" title={item.name}>
                           {item.name}
                           </h3>
@@ -224,9 +244,8 @@ function SearchResults() {
                           </p>
                        </div>
                        
-                       {/* 🔹 CLICKABLE ARROW BUTTON (Existing) */}
                        <a 
-                         href={item.link} 
+                         href={safeLink} // 🔹 Uses the safe link
                          target="_blank"
                          rel="noopener noreferrer"
                          className={`text-white w-10 h-10 rounded-full flex items-center justify-center hover:scale-110 transition-transform
