@@ -12,6 +12,9 @@ interface Product {
   image: string;
 }
 
+// We define 3 sorting states
+type SortState = "default" | "asc" | "desc";
+
 function SearchResults() {
   const searchParams = useSearchParams();
   const query = searchParams.get("q"); 
@@ -19,11 +22,14 @@ function SearchResults() {
   
   const [results, setResults] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
+  
+  // New: Start with "default" state
+  const [sortState, setSortState] = useState<SortState>("default");
 
   useEffect(() => {
     if (query) {
       setLoading(true);
-      fetch(`https://price-ai.onrender.com/search/${query}`)
+      fetch(`https://price-ai-backend.onrender.com/search/${query}`)
         .then((res) => res.json())
         .then((data) => {
           setResults(data.results);
@@ -36,37 +42,86 @@ function SearchResults() {
     }
   }, [query]);
 
+  // Helper: Extract number from price string
+  const getPriceValue = (priceStr: string) => {
+    if (!priceStr) return 0;
+    const cleanString = priceStr.replace(/[^0-9.]/g, "");
+    return parseFloat(cleanString) || 0;
+  };
+
+  // 🔹 Advanced Sorting Logic
+  const displayResults = [...results].sort((a, b) => {
+    if (sortState === "default") return 0; // Don't sort, keep original order
+    
+    const priceA = getPriceValue(a.price);
+    const priceB = getPriceValue(b.price);
+
+    return sortState === "asc" 
+      ? priceA - priceB  // Low to High
+      : priceB - priceA; // High to Low
+  });
+
+  // 🔹 Cycle function: Default -> Asc -> Desc -> Default
+  const toggleSort = () => {
+    if (sortState === "default") setSortState("asc");
+    else if (sortState === "asc") setSortState("desc");
+    else setSortState("default");
+  };
+
+  // 🔹 Dynamic Button Text
+  const getSortLabel = () => {
+    if (sortState === "asc") return "Price: Low to High 📉";
+    if (sortState === "desc") return "Price: High to Low 📈";
+    return "Sort by Price ⇅";
+  };
+
   return (
     <div className="min-h-screen p-6 md:p-12 font-sans transition-colors duration-300 bg-[#f0f4f8] dark:bg-[#1e293b]">
       <div className="max-w-7xl mx-auto">
         
         {/* Header */}
-        <div className="mb-10 flex flex-row items-center justify-between p-6 rounded-[2rem] transition-all
+        <div className="mb-10 flex flex-col md:flex-row gap-4 items-center justify-between p-6 rounded-[2rem] transition-all
           bg-[#f0f4f8] dark:bg-[#1e293b]
           shadow-[10px_10px_20px_#cdd4db,-10px_-10px_20px_#ffffff]
           dark:shadow-[10px_10px_20px_#0f172a,-10px_-10px_20px_#2d3b55]">
             
-            <div className="flex items-center gap-4">
-              <a href="/" className="w-12 h-12 flex items-center justify-center rounded-full text-blue-500 transition-transform hover:scale-95
+            <div className="flex items-center gap-4 w-full md:w-auto">
+              <a href="/" className="w-12 h-12 flex-shrink-0 flex items-center justify-center rounded-full text-blue-500 transition-transform hover:scale-95
                 bg-[#f0f4f8] dark:bg-[#1e293b]
                 shadow-[6px_6px_12px_#cdd4db,-6px_-6px_12px_#ffffff]
                 dark:shadow-[6px_6px_12px_#0f172a,-6px_-6px_12px_#2d3b55]">
                 ←
               </a>
-              <h1 className="text-xl md:text-2xl font-bold text-gray-700 dark:text-gray-200">
+              <h1 className="text-xl md:text-2xl font-bold text-gray-700 dark:text-gray-200 truncate">
                 Results for: <span className="text-blue-500 capitalize">{query}</span>
               </h1>
             </div>
 
-            <button
-              onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-              className="w-12 h-12 rounded-full flex items-center justify-center text-xl transition-all
-              bg-[#f0f4f8] dark:bg-[#1e293b]
-              shadow-[6px_6px_12px_#cdd4db,-6px_-6px_12px_#ffffff]
-              dark:shadow-[6px_6px_12px_#0f172a,-6px_-6px_12px_#2d3b55]"
-            >
-              {theme === "dark" ? "☀️" : "🌙"}
-            </button>
+            <div className="flex items-center gap-4">
+              
+              {/* 🔹 3-Way Sort Button */}
+              <button
+                onClick={toggleSort}
+                className={`px-6 py-3 rounded-xl font-bold text-sm transition-all active:scale-95 flex items-center gap-2
+                ${sortState !== "default" 
+                  ? "bg-blue-500 text-white shadow-[inset_4px_4px_8px_#1d4ed8,inset_-4px_-4px_8px_#3b82f6]" 
+                  : "bg-[#f0f4f8] dark:bg-[#1e293b] text-gray-600 dark:text-gray-300 shadow-[6px_6px_12px_#cdd4db,-6px_-6px_12px_#ffffff] dark:shadow-[6px_6px_12px_#0f172a,-6px_-6px_12px_#2d3b55]"
+                }`}
+              >
+                {getSortLabel()}
+              </button>
+
+              {/* Theme Toggle */}
+              <button
+                onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+                className="w-12 h-12 rounded-full flex items-center justify-center text-xl transition-all
+                bg-[#f0f4f8] dark:bg-[#1e293b]
+                shadow-[6px_6px_12px_#cdd4db,-6px_-6px_12px_#ffffff]
+                dark:shadow-[6px_6px_12px_#0f172a,-6px_-6px_12px_#2d3b55]"
+              >
+                {theme === "dark" ? "☀️" : "🌙"}
+              </button>
+            </div>
         </div>
 
         {/* Loading */}
@@ -78,7 +133,7 @@ function SearchResults() {
         ) : (
           /* Grid */
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
-            {results.map((item, index) => (
+            {displayResults.map((item, index) => (
               <div 
                 key={index} 
                 className="rounded-[2.5rem] p-4 flex flex-col group transition-all duration-300 hover:-translate-y-2
