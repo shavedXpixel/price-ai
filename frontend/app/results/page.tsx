@@ -47,49 +47,58 @@ function SearchResults() {
     }
   }, [query]);
 
-  // 🔹 STORE-SPECIFIC SEARCH GENERATOR 🔹
-  // If the link is broken, we search the specific store instead of Google.
+  // 🔹 STORE LINK GENERATOR (The "Smart Redirect") 🔹
   const generateStoreSearchLink = (source: string, title: string) => {
     const encodedTitle = encodeURIComponent(title);
-    const lowerSource = source.toLowerCase();
+    const cleanSource = source ? source.toLowerCase().trim() : "";
 
-    if (lowerSource.includes("amazon")) return `https://www.amazon.in/s?k=${encodedTitle}`;
-    if (lowerSource.includes("flipkart")) return `https://www.flipkart.com/search?q=${encodedTitle}`;
-    if (lowerSource.includes("croma")) return `https://www.croma.com/search/?text=${encodedTitle}`;
-    if (lowerSource.includes("reliance")) return `https://www.reliancedigital.in/search?q=${encodedTitle}`;
-    if (lowerSource.includes("cashify")) return `https://www.cashify.in/search?q=${encodedTitle}`;
-    if (lowerSource.includes("tatacliq")) return `https://www.tatacliq.com/search/?searchCategory=all&text=${encodedTitle}`;
+    // Known Stores - Direct Search
+    if (cleanSource.includes("amazon")) return `https://www.amazon.in/s?k=${encodedTitle}`;
+    if (cleanSource.includes("flipkart")) return `https://www.flipkart.com/search?q=${encodedTitle}`;
+    if (cleanSource.includes("croma")) return `https://www.croma.com/search/?text=${encodedTitle}`;
+    if (cleanSource.includes("reliance")) return `https://www.reliancedigital.in/search?q=${encodedTitle}`;
+    if (cleanSource.includes("cashify")) return `https://www.cashify.in/search?q=${encodedTitle}`;
+    if (cleanSource.includes("tatacliq")) return `https://www.tatacliq.com/search/?searchCategory=all&text=${encodedTitle}`;
     
-    // Default fallback if store is unknown
-    return `https://www.google.com/search?tbm=shop&q=${encodedTitle}`;
+    // 🔹 UNKNOWN STORES (e.g. iTradeit, EasyPhones)
+    // Instead of generic Google Shopping, we do a "Site Search" which is much more accurate.
+    // Example: "Samsung S24 site:itradeit.com" -> First result is the product page.
+    return `https://www.google.com/search?q=${encodedTitle}+${source}`;
   };
 
-  // 🔹 MASTER LINK DECODER 🔹
+  // 🔹 THE "ANTI-LOOP" LINK DECODER 🔹
   const getSafeLink = (link: string, source: string, title: string) => {
-    // 1. If no link exists, go to the store's search page directly.
+    // 1. No link? Make a fresh one.
     if (!link) return generateStoreSearchLink(source, title);
 
-    // 2. Direct Link? Use it.
-    if (link.startsWith("http")) return link;
+    // 2. Is it a clean HTTP link? 
+    // BUT we must check if it's actually a Google link disguised as a product link.
+    if (link.startsWith("http")) {
+        if (link.includes("google.com") || link.includes("google.co.in")) {
+            // It's a trap! It's just a Google Compare page. Ignore it.
+            // Fall through to logic below to extract real link or generate new one.
+        } else {
+            return link; // It's a real direct link (e.g. amazon.com/dp/...)
+        }
+    }
 
-    // 3. Known Relative Paths
+    // 3. Known Relative Paths (Shortcuts)
     if (link.startsWith("/dp/") || link.startsWith("/gp/")) return `https://www.amazon.in${link}`;
     if (link.startsWith("/p/") || link.startsWith("/dl/")) return `https://www.flipkart.com${link}`;
 
-    // 4. DEEP SEARCH for hidden URLs (The regex fix)
-    // Looks for "http..." hidden inside "url?q=http..."
+    // 4. DEEP SEARCH (Regex)
+    // Look for a hidden URL, but REJECT it if it's just another Google link.
     const hiddenUrlMatch = link.match(/(https?:\/\/[^&%]+)/);
     if (hiddenUrlMatch && hiddenUrlMatch[0]) {
-         return decodeURIComponent(hiddenUrlMatch[0]);
+         const extracted = decodeURIComponent(hiddenUrlMatch[0]);
+         // 🚫 BLOCK GOOGLE LINKS
+         if (!extracted.includes("google.com") && !extracted.includes("google.co.in")) {
+             return extracted;
+         }
     }
 
-    // 5. Encrypted Google Ads (/aclk)
-    // We MUST use the redirect, otherwise it won't open.
-    if (link.startsWith("/")) {
-        return `https://www.google.com${link}`;
-    }
-
-    // 6. Absolute Fallback: Go to the Store's Search Page
+    // 5. IF WE ARE HERE, THE LINK WAS BAD OR A GOOGLE TRAP.
+    // IGNORE the original link completely. Generate a fresh Store Search link.
     return generateStoreSearchLink(source, title);
   };
 
@@ -129,10 +138,12 @@ function SearchResults() {
   };
 
   const getStoreColor = (source: string) => {
-    if (source.toLowerCase().includes("amazon")) return "bg-[#FF9900] text-black";
-    if (source.toLowerCase().includes("flipkart")) return "bg-[#2874F0] text-white";
-    if (source.toLowerCase().includes("croma")) return "bg-[#00E9BF] text-black";
-    if (source.toLowerCase().includes("cashify")) return "bg-[#4CAF50] text-white";
+    const s = source.toLowerCase();
+    if (s.includes("amazon")) return "bg-[#FF9900] text-black";
+    if (s.includes("flipkart")) return "bg-[#2874F0] text-white";
+    if (s.includes("croma")) return "bg-[#00E9BF] text-black";
+    if (s.includes("cashify")) return "bg-[#4CAF50] text-white";
+    if (s.includes("reliance")) return "bg-[#E42529] text-white"; // Added Reliance Red
     return "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200";
   };
 
@@ -208,7 +219,7 @@ function SearchResults() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
             {displayResults.map((item, index) => {
               const isCheapest = getPriceValue(item.price) === lowestPrice;
-              // 🔹 Generate the Safe Link
+              // 🔹 Uses the new Anti-Google Logic
               const safeLink = getSafeLink(item.link, item.source, item.name);
 
               return (
