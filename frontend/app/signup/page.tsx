@@ -1,113 +1,109 @@
-// frontend/app/signup/page.tsx
 "use client";
 import { useState } from "react";
+import { auth } from "../firebase";
 import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth";
-import { doc, setDoc } from "firebase/firestore"; // 🔹 New: Import database tools
-import { auth, db } from "../firebase"; // 🔹 New: Import the db connection
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { motion } from "framer-motion";
 
-export default function Signup() {
-  const [name, setName] = useState("");
+export default function SignupPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
+  const [name, setName] = useState("");
   const router = useRouter();
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError("");
     try {
-      // 1. Create the Account (Authentication)
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-      const user = userCredential.user;
-
-      // 2. Add Display Name to Auth Profile
-      await updateProfile(user, { displayName: name });
-
-      // 3. 🔹 SAVE TO DATABASE (The Magic Step)
-      // We create a document inside the "users" collection with the same ID as the user
-      await setDoc(doc(db, "users", user.uid), {
-        uid: user.uid,
-        name: name,
-        email: email,
-        createdAt: new Date().toISOString(),
-        role: "customer", // You can use this later to make "admin" accounts!
-      });
-
-      alert("Account Created & Saved! Redirecting...");
-      router.push("/login");
-    } catch (err: any) {
-      console.error("Signup Error:", err);
-      setError(err.message.replace("Firebase:", "").trim());
+      await updateProfile(userCredential.user, { displayName: name });
+      router.push("/");
+    } catch (error: any) {
+      alert(error.message);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#f0f4f8] dark:bg-[#1e293b] p-4">
-      <div className="w-full max-w-md p-8 rounded-[2.5rem] 
-        bg-[#f0f4f8] dark:bg-[#1e293b]
-        shadow-[20px_20px_40px_#cdd4db,-20px_-20px_40px_#ffffff]
-        dark:shadow-[20px_20px_40px_#0f172a,-20px_-20px_40px_#2d3b55]">
-        
-        <h2 className="text-3xl font-black text-center text-gray-700 dark:text-gray-200 mb-8">
-          Join Price AI 🚀
-        </h2>
-
-        {error && <p className="text-red-500 text-center text-sm font-bold mb-4">{error}</p>}
-
-        <form onSubmit={handleSignup} className="flex flex-col gap-6">
-          <input
-            type="text"
-            placeholder="Full Name"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            className="w-full p-4 rounded-xl outline-none transition-all
-            bg-[#f0f4f8] dark:bg-[#1e293b] text-gray-700 dark:text-white
-            shadow-[inset_6px_6px_12px_#cdd4db,inset_-6px_-6px_12px_#ffffff]
-            dark:shadow-[inset_6px_6px_12px_#0f172a,inset_-6px_-6px_12px_#2d3b55]
-            focus:ring-2 focus:ring-blue-400"
-            required
+    <div className="min-h-screen relative overflow-hidden flex items-center justify-center p-6 bg-[#f8fafc] dark:bg-[#020617] transition-colors duration-700">
+      
+      {/* 🔹 SHARED MESH GRADIENT BACKGROUND */}
+      <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
+          <motion.div 
+            animate={{ rotate: 360, scale: [1.2, 1, 1.2] }}
+            transition={{ duration: 25, repeat: Infinity, ease: "linear" }}
+            className="absolute top-[-10%] right-[-10%] w-[60vw] h-[60vw] bg-purple-500/20 dark:bg-purple-600/10 blur-[120px] rounded-full"
           />
-          <input
-            type="email"
-            placeholder="Email Address"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="w-full p-4 rounded-xl outline-none transition-all
-            bg-[#f0f4f8] dark:bg-[#1e293b] text-gray-700 dark:text-white
-            shadow-[inset_6px_6px_12px_#cdd4db,inset_-6px_-6px_12px_#ffffff]
-            dark:shadow-[inset_6px_6px_12px_#0f172a,inset_-6px_-6px_12px_#2d3b55]
-            focus:ring-2 focus:ring-blue-400"
-            required
+          <motion.div 
+            animate={{ rotate: -360, scale: [1, 1.2, 1] }}
+            transition={{ duration: 30, repeat: Infinity, ease: "linear" }}
+            className="absolute bottom-[-10%] left-[-10%] w-[60vw] h-[60vw] bg-blue-500/20 dark:bg-blue-600/10 blur-[120px] rounded-full"
           />
-          <input
-            type="password"
-            placeholder="Password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="w-full p-4 rounded-xl outline-none transition-all
-            bg-[#f0f4f8] dark:bg-[#1e293b] text-gray-700 dark:text-white
-            shadow-[inset_6px_6px_12px_#cdd4db,inset_-6px_-6px_12px_#ffffff]
-            dark:shadow-[inset_6px_6px_12px_#0f172a,inset_-6px_-6px_12px_#2d3b55]
-            focus:ring-2 focus:ring-blue-400"
-            required
-          />
+      </div>
 
-          <button
+      <motion.div 
+        initial={{ opacity: 0, x: 50 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ duration: 0.6, ease: "easeOut" }}
+        className="relative z-10 w-full max-w-md p-10 rounded-[2.5rem] bg-white/60 dark:bg-gray-900/60 backdrop-blur-3xl border border-white/40 dark:border-gray-800/50 shadow-2xl"
+      >
+        <div className="text-center mb-8">
+          <h1 className="text-4xl font-black text-gray-800 dark:text-white mb-2">Join PriceAI</h1>
+          <p className="text-gray-500 dark:text-gray-400 font-medium">Start comparing prices like a pro</p>
+        </div>
+
+        <form onSubmit={handleSignup} className="flex flex-col gap-5">
+          <div className="flex flex-col gap-1">
+            <label className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] ml-2">Full Name</label>
+            <input 
+              type="text" 
+              placeholder="John Doe" 
+              className="p-4 rounded-2xl bg-white/50 dark:bg-gray-800/50 border border-white/20 dark:border-gray-700/50 outline-none focus:ring-4 focus:ring-blue-500/20 transition-all dark:text-white"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              required
+            />
+          </div>
+
+          <div className="flex flex-col gap-1">
+            <label className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] ml-2">Email</label>
+            <input 
+              type="email" 
+              placeholder="john@example.com" 
+              className="p-4 rounded-2xl bg-white/50 dark:bg-gray-800/50 border border-white/20 dark:border-gray-700/50 outline-none focus:ring-4 focus:ring-blue-500/20 transition-all dark:text-white"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+            />
+          </div>
+
+          <div className="flex flex-col gap-1">
+            <label className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] ml-2">Password</label>
+            <input 
+              type="password" 
+              placeholder="Create a password" 
+              className="p-4 rounded-2xl bg-white/50 dark:bg-gray-800/50 border border-white/20 dark:border-gray-700/50 outline-none focus:ring-4 focus:ring-blue-500/20 transition-all dark:text-white"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+            />
+          </div>
+
+          <motion.button 
+            whileHover={{ scale: 1.02, boxShadow: "0 20px 40px rgba(59, 130, 246, 0.4)" }}
+            whileTap={{ scale: 0.98 }}
             type="submit"
-            className="w-full py-4 rounded-xl font-black text-white bg-blue-500 transition-transform active:scale-95
-            shadow-[6px_6px_12px_#cdd4db,-6px_-6px_12px_#ffffff]
-            dark:shadow-[6px_6px_12px_#0f172a,-6px_-6px_12px_#2d3b55]"
+            className="mt-4 py-4 rounded-2xl bg-blue-600 text-white font-black text-lg shadow-xl shadow-blue-600/20"
           >
-            SIGN UP
-          </button>
+            Create Account
+          </motion.button>
         </form>
 
-        <p className="text-center text-gray-500 dark:text-gray-400 mt-6 text-sm">
-          Already have an account? <Link href="/login" className="text-blue-500 font-bold hover:underline">Login</Link>
-        </p>
-      </div>
+        <div className="mt-8 text-center">
+          <p className="text-gray-500 dark:text-gray-400">
+            Already have an account? <Link href="/login" className="text-blue-500 font-black hover:underline underline-offset-4">Log in</Link>
+          </p>
+        </div>
+      </motion.div>
     </div>
   );
 }
