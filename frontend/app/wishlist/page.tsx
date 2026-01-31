@@ -23,7 +23,6 @@ export default function WishlistPage() {
   const [loading, setLoading] = useState(true);
   const { theme, setTheme } = useTheme();
 
-  // 🔹 Helper to create a Unique ID
   const getProductId = (item: Product) => {
     return `${item.source}-${item.name}-${item.price}`.replace(/\s+/g, '').toLowerCase();
   };
@@ -48,16 +47,35 @@ export default function WishlistPage() {
     const docRef = doc(db, "users", user.uid);
     const targetId = getProductId(item);
     
-    // 🔹 FIX: Filter by Unique ID, not just Link
     setWishlist((prev) => prev.filter((i) => getProductId(i) !== targetId));
 
-    // Remove from DB
     await updateDoc(docRef, {
       wishlist: arrayRemove(item)
     });
   };
 
-  // --- (Keep existing Link Helpers from previous code) ---
+  // 🔹 SHARE FUNCTION
+  const handleShare = async (item: Product) => {
+    const safeLink = getSafeLink(item.link, item.source, item.name);
+    const shareText = `🔥 Found ${item.name} for ${item.displayPrice || item.price} on ${item.source}! \nCheck it out here: ${safeLink}`;
+
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: 'Price AI Deal',
+          text: shareText,
+          url: safeLink,
+        });
+      } catch (err) {
+        console.log("Share cancelled");
+      }
+    } else {
+      navigator.clipboard.writeText(shareText);
+      alert("Deal copied to clipboard! 📋");
+    }
+  };
+
+  // --- (Existing Helpers) ---
   const generateStoreSearchLink = (source: string, title: string) => {
     const encodedTitle = encodeURIComponent(title);
     const cleanSource = source ? source.toLowerCase().replace(/\s+/g, "") : "";
@@ -171,6 +189,15 @@ export default function WishlistPage() {
                             title="Remove"
                         >
                             ✕
+                        </button>
+                        
+                        {/* 🔹 NEW: SHARE BUTTON IN WISHLIST */}
+                        <button 
+                            onClick={() => handleShare(item)}
+                            className="absolute top-14 right-4 z-20 w-8 h-8 rounded-full flex items-center justify-center shadow-md transition-all active:scale-90 bg-white/80 dark:bg-black/50 text-gray-400 hover:text-blue-500"
+                            title="Share Deal"
+                        >
+                            📤
                         </button>
 
                         <div className="h-48 rounded-[2rem] flex items-center justify-center relative p-4 mb-4 overflow-hidden bg-[#f0f4f8] dark:bg-[#1e293b] shadow-[inset_6px_6px_12px_#cdd4db,inset_-6px_-6px_12px_#ffffff] dark:shadow-[inset_6px_6px_12px_#0f172a,inset_-6px_-6px_12px_#2d3b55]">

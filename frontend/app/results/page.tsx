@@ -30,9 +30,9 @@ function SearchResults() {
   const [selectedStore, setSelectedStore] = useState("All");
   
   const [user, setUser] = useState<User | null>(null);
-  const [wishlistIds, setWishlistIds] = useState<string[]>([]); // 🔹 Stores Unique IDs
+  const [wishlistIds, setWishlistIds] = useState<string[]>([]); 
 
-  // 🔹 Helper to create a Unique ID for every product
+  // 🔹 Unique ID Helper
   const getProductId = (item: Product) => {
     return `${item.source}-${item.name}-${item.price}`.replace(/\s+/g, '').toLowerCase();
   };
@@ -44,7 +44,6 @@ function SearchResults() {
         const docRef = doc(db, "users", currentUser.uid);
         const docSnap = await getDoc(docRef);
         if (docSnap.exists() && docSnap.data().wishlist) {
-          // Generate IDs for saved items to track them locally
           const savedIds = docSnap.data().wishlist.map((item: Product) => getProductId(item));
           setWishlistIds(savedIds);
         }
@@ -79,35 +78,45 @@ function SearchResults() {
       alert("Please Login to save items! 🔒");
       return;
     }
-
     const docRef = doc(db, "users", user.uid);
     const itemId = getProductId(item);
     const isAlreadySaved = wishlistIds.includes(itemId);
 
-    // 1. Optimistic Update (Instant Red/White Toggle)
     if (isAlreadySaved) {
         setWishlistIds(prev => prev.filter(id => id !== itemId));
+        // Note: Ideally we remove by ID, but arrayRemove requires exact object match.
+        // This usually works if the object hasn't changed.
+        await updateDoc(docRef, { wishlist: arrayRemove(item) });
     } else {
         setWishlistIds(prev => [...prev, itemId]);
-    }
-
-    // 2. Update Database
-    try {
-      if (isAlreadySaved) {
-        // We have to remove the exact object. Firestore arrayRemove requires exact match.
-        // Since we don't have the exact original object reference easily, 
-        // we might fail if the object structure slightly differs. 
-        // Ideally, we fetch, filter, and set. But for now, let's try arrayRemove with the item passed.
-        await updateDoc(docRef, { wishlist: arrayRemove(item) });
-      } else {
         await setDoc(docRef, { wishlist: arrayUnion(item) }, { merge: true });
-      }
-    } catch (error) {
-      console.error("Error updating wishlist:", error);
     }
   };
 
-  // --- (Keep existing Link Helpers: generateStoreSearchLink, getSafeLink) ---
+  // 🔹 NEW: SMART SHARE FUNCTION
+  const handleShare = async (item: Product) => {
+    const safeLink = getSafeLink(item.link, item.source, item.name);
+    const shareText = `🔥 Found ${item.name} for ${item.displayPrice || item.price} on ${item.source}! \nCheck it out here: ${safeLink}`;
+
+    if (navigator.share) {
+      // Use Native Mobile Share
+      try {
+        await navigator.share({
+          title: 'Price AI Deal',
+          text: shareText,
+          url: safeLink,
+        });
+      } catch (err) {
+        console.log("Share cancelled");
+      }
+    } else {
+      // Fallback for PC: Copy to Clipboard
+      navigator.clipboard.writeText(shareText);
+      alert("Deal copied to clipboard! 📋");
+    }
+  };
+
+  // --- Helpers ---
   const generateStoreSearchLink = (source: string, title: string) => {
     const encodedTitle = encodeURIComponent(title);
     const cleanSource = source ? source.toLowerCase().replace(/\s+/g, "") : "";
@@ -237,8 +246,6 @@ function SearchResults() {
             {displayResults.map((item, index) => {
               const isCheapest = getPriceValue(item.price) === lowestPrice;
               const safeLink = getSafeLink(item.link, item.source, item.name);
-              
-              // 🔹 UNIQUE CHECK: Check ID instead of Link
               const itemId = getProductId(item);
               const isSaved = wishlistIds.includes(itemId); 
 
@@ -252,6 +259,15 @@ function SearchResults() {
                     ${isSaved ? "bg-red-500 text-white" : "bg-white/80 dark:bg-black/50 text-gray-400 hover:text-red-500"}`}
                   >
                     {isSaved ? "♥" : "♡"}
+                  </button>
+
+                  {/* 🔹 NEW: SHARE BUTTON */}
+                  <button 
+                    onClick={() => handleShare(item)}
+                    className="absolute top-14 right-4 z-20 w-8 h-8 rounded-full flex items-center justify-center shadow-md transition-all active:scale-90 bg-white/80 dark:bg-black/50 text-gray-400 hover:text-blue-500"
+                    title="Share Deal"
+                  >
+                    📤
                   </button>
 
                   {isCheapest && (
