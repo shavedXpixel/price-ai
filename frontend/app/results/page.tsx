@@ -5,6 +5,7 @@ import { useTheme } from "next-themes";
 import { auth, db } from "../firebase"; 
 import { onAuthStateChanged, User } from "firebase/auth";
 import { doc, updateDoc, arrayUnion, arrayRemove, getDoc, setDoc } from "firebase/firestore";
+import Link from "next/link"; 
 
 interface Product {
   name: string;
@@ -31,8 +32,17 @@ function SearchResults() {
   
   const [user, setUser] = useState<User | null>(null);
   const [wishlistIds, setWishlistIds] = useState<string[]>([]); 
+  const [cartIds, setCartIds] = useState<string[]>([]); 
 
-  // 🔹 Unique ID Helper
+  // 🔹 TOAST STATE
+  const [toast, setToast] = useState<{ show: boolean, message: string, type: 'success' | 'error' }>({ show: false, message: "", type: 'success' });
+
+  // 🔹 Helper to show toast
+  const showToast = (message: string, type: 'success' | 'error' = 'success') => {
+    setToast({ show: true, message, type });
+    setTimeout(() => setToast(prev => ({ ...prev, show: false })), 3000); // Hide after 3s
+  };
+
   const getProductId = (item: Product) => {
     return `${item.source}-${item.name}-${item.price}`.replace(/\s+/g, '').toLowerCase();
   };
@@ -43,9 +53,10 @@ function SearchResults() {
       if (currentUser) {
         const docRef = doc(db, "users", currentUser.uid);
         const docSnap = await getDoc(docRef);
-        if (docSnap.exists() && docSnap.data().wishlist) {
-          const savedIds = docSnap.data().wishlist.map((item: Product) => getProductId(item));
-          setWishlistIds(savedIds);
+        if (docSnap.exists()) {
+            const data = docSnap.data();
+            if (data.wishlist) setWishlistIds(data.wishlist.map((item: Product) => getProductId(item)));
+            if (data.cart) setCartIds(data.cart.map((item: Product) => getProductId(item)));
         }
       }
     });
@@ -73,9 +84,30 @@ function SearchResults() {
     }
   }, [query]);
 
+  // 🔹 UPDATED ADD TO CART
+  const addToCart = async (item: Product) => {
+    if (!user) {
+      showToast("Please Login to shop! 🔒", "error");
+      return;
+    }
+    const docRef = doc(db, "users", user.uid);
+    const itemId = getProductId(item);
+
+    if (cartIds.includes(itemId)) {
+        showToast("Item is already in your cart! 🛒", "error");
+        return;
+    }
+
+    setCartIds(prev => [...prev, itemId]); 
+    await setDoc(docRef, { cart: arrayUnion(item) }, { merge: true });
+    
+    // ✨ Trigger Success Toast
+    showToast("Added to Cart Successfully! 🛍️", "success");
+  };
+
   const toggleWishlist = async (item: Product) => {
     if (!user) {
-      alert("Please Login to save items! 🔒");
+      showToast("Please Login to save items! 🔒", "error");
       return;
     }
     const docRef = doc(db, "users", user.uid);
@@ -84,35 +116,23 @@ function SearchResults() {
 
     if (isAlreadySaved) {
         setWishlistIds(prev => prev.filter(id => id !== itemId));
-        // Note: Ideally we remove by ID, but arrayRemove requires exact object match.
-        // This usually works if the object hasn't changed.
         await updateDoc(docRef, { wishlist: arrayRemove(item) });
+        showToast("Removed from Wishlist 💔", "success");
     } else {
         setWishlistIds(prev => [...prev, itemId]);
         await setDoc(docRef, { wishlist: arrayUnion(item) }, { merge: true });
+        showToast("Added to Wishlist ❤️", "success");
     }
   };
 
-  // 🔹 NEW: SMART SHARE FUNCTION
   const handleShare = async (item: Product) => {
     const safeLink = getSafeLink(item.link, item.source, item.name);
     const shareText = `🔥 Found ${item.name} for ${item.displayPrice || item.price} on ${item.source}! \nCheck it out here: ${safeLink}`;
-
     if (navigator.share) {
-      // Use Native Mobile Share
-      try {
-        await navigator.share({
-          title: 'Price AI Deal',
-          text: shareText,
-          url: safeLink,
-        });
-      } catch (err) {
-        console.log("Share cancelled");
-      }
+      try { await navigator.share({ title: 'Price AI Deal', text: shareText, url: safeLink }); } catch (err) {}
     } else {
-      // Fallback for PC: Copy to Clipboard
       navigator.clipboard.writeText(shareText);
-      alert("Deal copied to clipboard! 📋");
+      showToast("Deal Link Copied! 📋", "success");
     }
   };
 
@@ -134,9 +154,7 @@ function SearchResults() {
   const getSafeLink = (link: string, source: string, title: string) => {
     if (!link) return generateStoreSearchLink(source, title);
     if (link.startsWith("http")) {
-        if (link.includes("google.com") || link.includes("google.co.in")) {
-             return generateStoreSearchLink(source, title);
-        }
+        if (link.includes("google.com") || link.includes("google.co.in")) return generateStoreSearchLink(source, title);
         return link; 
     }
     if (link.startsWith("/dp/") || link.startsWith("/gp/")) return `https://www.amazon.in${link}`;
@@ -210,6 +228,15 @@ function SearchResults() {
                 </div>
 
                 <div className="flex items-center gap-4">
+                 <Link href="/cart">
+                    <button className="px-5 py-2 rounded-xl font-bold text-gray-600 dark:text-gray-300 bg-[#f0f4f8] dark:bg-[#1e293b] 
+                    shadow-[6px_6px_12px_#cdd4db,-6px_-6px_12px_#ffffff] 
+                    dark:shadow-[6px_6px_12px_#0f172a,-6px_-6px_12px_#2d3b55] 
+                    hover:scale-105 transition-transform flex items-center gap-2">
+                        <span>🛒</span> Cart
+                    </button>
+                </Link>
+
                 <button onClick={toggleSort} className={`px-6 py-3 rounded-xl font-bold text-sm transition-all active:scale-95 flex items-center gap-2
                     ${sortState !== "default" 
                     ? "bg-blue-500 text-white shadow-[inset_4px_4px_8px_#1d4ed8,inset_-4px_-4px_8px_#3b82f6]" 
@@ -248,48 +275,26 @@ function SearchResults() {
               const safeLink = getSafeLink(item.link, item.source, item.name);
               const itemId = getProductId(item);
               const isSaved = wishlistIds.includes(itemId); 
+              const isInCart = cartIds.includes(itemId);
 
               return (
                 <div key={itemId} className={`relative rounded-[2.5rem] p-4 flex flex-col group transition-all duration-300 hover:-translate-y-2 bg-[#f0f4f8] dark:bg-[#1e293b] shadow-[12px_12px_24px_#cdd4db,-12px_-12px_24px_#ffffff] dark:shadow-[12px_12px_24px_#0f172a,-12px_-12px_24px_#2d3b55] ${isCheapest ? "ring-2 ring-red-500/50" : ""}`}>
                   
-                  {/* 🔹 HEART BUTTON */}
-                  <button 
-                    onClick={() => toggleWishlist(item)}
-                    className={`absolute top-4 right-4 z-20 w-8 h-8 rounded-full flex items-center justify-center shadow-md transition-all active:scale-90
-                    ${isSaved ? "bg-red-500 text-white" : "bg-white/80 dark:bg-black/50 text-gray-400 hover:text-red-500"}`}
-                  >
-                    {isSaved ? "♥" : "♡"}
-                  </button>
+                  {/* Buttons */}
+                  <button onClick={() => toggleWishlist(item)} className={`absolute top-4 right-4 z-20 w-8 h-8 rounded-full flex items-center justify-center shadow-md transition-all active:scale-90 ${isSaved ? "bg-red-500 text-white" : "bg-white/80 dark:bg-black/50 text-gray-400 hover:text-red-500"}`}>{isSaved ? "♥" : "♡"}</button>
+                  <button onClick={() => handleShare(item)} className="absolute top-14 right-4 z-20 w-8 h-8 rounded-full flex items-center justify-center shadow-md transition-all active:scale-90 bg-white/80 dark:bg-black/50 text-gray-400 hover:text-blue-500">📤</button>
+                  <button onClick={() => addToCart(item)} className={`absolute top-24 right-4 z-20 w-8 h-8 rounded-full flex items-center justify-center shadow-md transition-all active:scale-90 ${isInCart ? "bg-green-500 text-white" : "bg-white/80 dark:bg-black/50 text-gray-400 hover:text-green-500"}`}>{isInCart ? "✔" : "+"}</button>
 
-                  {/* 🔹 NEW: SHARE BUTTON */}
-                  <button 
-                    onClick={() => handleShare(item)}
-                    className="absolute top-14 right-4 z-20 w-8 h-8 rounded-full flex items-center justify-center shadow-md transition-all active:scale-90 bg-white/80 dark:bg-black/50 text-gray-400 hover:text-blue-500"
-                    title="Share Deal"
-                  >
-                    📤
-                  </button>
-
-                  {isCheapest && (
-                    <div className="absolute -top-3 -right-3 bg-gradient-to-r from-red-500 to-orange-500 text-white font-black text-xs px-4 py-2 rounded-full shadow-lg z-10 animate-pulse">
-                      🏆 BEST DEAL
-                    </div>
-                  )}
+                  {isCheapest && (<div className="absolute -top-3 -right-3 bg-gradient-to-r from-red-500 to-orange-500 text-white font-black text-xs px-4 py-2 rounded-full shadow-lg z-10 animate-pulse">🏆 BEST DEAL</div>)}
 
                   <div className="h-48 rounded-[2rem] flex items-center justify-center relative p-4 mb-4 overflow-hidden bg-[#f0f4f8] dark:bg-[#1e293b] shadow-[inset_6px_6px_12px_#cdd4db,inset_-6px_-6px_12px_#ffffff] dark:shadow-[inset_6px_6px_12px_#0f172a,inset_-6px_-6px_12px_#2d3b55]">
                       <span className={`absolute top-4 left-4 px-3 py-1 text-[10px] font-extrabold rounded-full uppercase tracking-wider shadow-md ${getStoreColor(item.source)}`}>{item.source}</span>
-                      {item.image ? (
-                        <a href={safeLink} target="_blank" rel="noopener noreferrer" className="h-full w-full flex items-center justify-center">
-                          <img src={item.image} alt={item.name} className="h-full w-full object-contain mix-blend-multiply dark:mix-blend-normal transition-transform hover:scale-110" />
-                        </a>
-                      ) : (<div className="text-gray-300 text-xs">No Image</div>)}
+                      {item.image ? (<img src={item.image} alt={item.name} className="h-full w-full object-contain mix-blend-multiply dark:mix-blend-normal transition-transform hover:scale-110" />) : (<div className="text-gray-300 text-xs">No Image</div>)}
                   </div>
 
                   <div className="px-2 flex-1 flex flex-col justify-between">
                     <div>
-                        <a href={safeLink} target="_blank" rel="noopener noreferrer">
-                          <h3 className="font-bold text-gray-700 dark:text-gray-200 text-md leading-snug mb-2 line-clamp-2 hover:text-blue-500 transition-colors" title={item.name}>{item.name}</h3>
-                        </a>
+                        <h3 className="font-bold text-gray-700 dark:text-gray-200 text-md leading-snug mb-2 line-clamp-2" title={item.name}>{item.name}</h3>
                         <div className="flex items-center gap-1 mb-3">
                             <span className="text-yellow-400 text-sm">★</span>
                             <span className="text-xs font-bold text-gray-600 dark:text-gray-400">{item.rating}</span>
@@ -311,6 +316,15 @@ function SearchResults() {
           </div>
         )}
       </div>
+
+      {/* 🔹 TOAST NOTIFICATION COMPONENT */}
+      <div className={`fixed bottom-10 left-1/2 -translate-x-1/2 z-50 transition-all duration-500 ${toast.show ? "opacity-100 translate-y-0" : "opacity-0 translate-y-10 pointer-events-none"}`}>
+        <div className={`px-6 py-3 rounded-full shadow-2xl flex items-center gap-3 border border-white/10 backdrop-blur-md ${toast.type === 'success' ? 'bg-green-500 text-white' : 'bg-red-500 text-white'}`}>
+             <span className="text-xl">{toast.type === 'success' ? '✅' : '⚠️'}</span>
+             <span className="font-bold text-sm tracking-wide">{toast.message}</span>
+        </div>
+      </div>
+
     </div>
   );
 }

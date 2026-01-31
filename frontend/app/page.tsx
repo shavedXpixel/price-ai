@@ -56,13 +56,24 @@ export default function Home() {
         {user ? (
           // IF LOGGED IN
           <div className="flex items-center gap-4">
-            {/* 🔹 NEW: Wishlist Button */}
+            
+            {/* ❤️ Wishlist Button */}
             <Link href="/wishlist">
                 <button className="hidden md:block px-4 py-2 rounded-xl font-bold text-gray-600 dark:text-gray-300 bg-[#f0f4f8] dark:bg-[#1e293b] 
                 shadow-[6px_6px_12px_#cdd4db,-6px_-6px_12px_#ffffff] 
                 dark:shadow-[6px_6px_12px_#0f172a,-6px_-6px_12px_#2d3b55] 
                 hover:scale-105 transition-transform">
                 ❤️ Wishlist
+                </button>
+            </Link>
+
+            {/* 🛒 Cart Button (NEW) */}
+            <Link href="/cart">
+                <button className="hidden md:block px-4 py-2 rounded-xl font-bold text-gray-600 dark:text-gray-300 bg-[#f0f4f8] dark:bg-[#1e293b] 
+                shadow-[6px_6px_12px_#cdd4db,-6px_-6px_12px_#ffffff] 
+                dark:shadow-[6px_6px_12px_#0f172a,-6px_-6px_12px_#2d3b55] 
+                hover:scale-105 transition-transform">
+                🛒 Cart
                 </button>
             </Link>
 
