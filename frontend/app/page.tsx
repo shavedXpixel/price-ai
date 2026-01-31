@@ -6,11 +6,10 @@ import { auth } from "./firebase";
 import Link from "next/link";
 import { useTheme } from "next-themes"; 
 
-// 🔹 UPDATED CLICKABLE RUNNING BANNER
+// 🔹 CLICKABLE RUNNING BANNER
 function TopScrollingBanner() {
     const router = useRouter();
     
-    // Alert data with search keywords
     const alerts = [
         { text: "🔥 FLASHSALE: Get up to 40% off on Refurbished iPhones!", query: "iPhone" },
         { text: "🚀 TRENDING: Sony PS5 Pro prices just dropped!", query: "PS5 Pro" },
@@ -99,9 +98,14 @@ export default function Home() {
             <button onClick={() => setIsMenuOpen(!isMenuOpen)} className="md:hidden w-12 h-12 rounded-xl flex items-center justify-center text-2xl bg-[#f0f4f8] dark:bg-[#1e293b] text-gray-700 dark:text-gray-200 shadow-[6px_6px_12px_#cdd4db,-6px_-6px_12px_#ffffff] dark:shadow-[6px_6px_12px_#0f172a,-6px_-6px_12px_#2d3b55] active:scale-95 transition-all">
                 {isMenuOpen ? "✕" : "☰"}
             </button>
+            
+            {/* Desktop Navigation Group */}
             <div className="hidden md:flex items-center gap-4">
                 {user ? (
                     <>
+                        <span className="font-bold text-gray-700 dark:text-gray-200 px-2">
+                             Hi, {user.displayName ? user.displayName.split(' ')[0] : "User"} 👋
+                        </span>
                         <Link href="/orders"><button className="px-4 py-2 rounded-xl font-bold text-gray-600 dark:text-gray-300 bg-[#f0f4f8] dark:bg-[#1e293b] shadow-[6px_6px_12px_#cdd4db,-6px_-6px_12px_#ffffff] dark:shadow-[6px_6px_12px_#0f172a,-6px_-6px_12px_#2d3b55] hover:scale-105 transition-transform">📦 Orders</button></Link>
                         <Link href="/wishlist"><button className="px-4 py-2 rounded-xl font-bold text-gray-600 dark:text-gray-300 bg-[#f0f4f8] dark:bg-[#1e293b] shadow-[6px_6px_12px_#cdd4db,-6px_-6px_12px_#ffffff] dark:shadow-[6px_6px_12px_#0f172a,-6px_-6px_12px_#2d3b55] hover:scale-105 transition-transform">❤️ Wishlist</button></Link>
                         <Link href="/cart"><button className="px-4 py-2 rounded-xl font-bold text-gray-600 dark:text-gray-300 bg-[#f0f4f8] dark:bg-[#1e293b] shadow-[6px_6px_12px_#cdd4db,-6px_-6px_12px_#ffffff] dark:shadow-[6px_6px_12px_#0f172a,-6px_-6px_12px_#2d3b55] hover:scale-105 transition-transform">🛒 Cart</button></Link>
@@ -116,10 +120,14 @@ export default function Home() {
             </div>
         </div>
 
+        {/* Mobile Dropdown Menu */}
         {isMenuOpen && (
             <div className="mt-4 w-48 flex flex-col gap-3 p-4 rounded-2xl bg-[#f0f4f8] dark:bg-[#1e293b] shadow-[10px_10px_20px_#cdd4db,-10px_-10px_20px_#ffffff] dark:shadow-[10px_10px_20px_#0f172a,-10px_-10px_20px_#2d3b55] md:hidden animate-in slide-in-from-top-2">
                 {user ? (
                     <>
+                        <div className="text-center font-bold text-blue-500 pb-2 border-b border-gray-300 dark:border-gray-700">
+                             Hi, {user.displayName ? user.displayName.split(' ')[0] : "User"}!
+                        </div>
                         <Link href="/orders" onClick={() => setIsMenuOpen(false)}><button className="w-full text-left px-4 py-2 rounded-xl font-bold text-gray-600 dark:text-gray-300">📦 Orders</button></Link>
                         <Link href="/wishlist" onClick={() => setIsMenuOpen(false)}><button className="w-full text-left px-4 py-2 rounded-xl font-bold text-gray-600 dark:text-gray-300">❤️ Wishlist</button></Link>
                         <Link href="/cart" onClick={() => setIsMenuOpen(false)}><button className="w-full text-left px-4 py-2 rounded-xl font-bold text-gray-600 dark:text-gray-300">🛒 Cart</button></Link>
@@ -137,6 +145,14 @@ export default function Home() {
 
       {/* 🔹 Main Hero Section */}
       <div className="animate-in fade-in zoom-in duration-700 flex flex-col items-center">
+        
+        {/* 🔹 USER NAME DISPLAYED ON CENTER SCREEN */}
+        {user && (
+            <div className="mb-2 text-xl md:text-2xl font-bold text-gray-500 dark:text-gray-400 opacity-80">
+                Hi, {user.displayName ? user.displayName : "Shop Master"} 👋
+            </div>
+        )}
+
         <h1 className="text-6xl md:text-8xl font-black text-gray-700 dark:text-gray-200 mb-8 tracking-tight text-center">
             Price<span className="text-blue-500">AI</span>
         </h1>
