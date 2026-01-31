@@ -47,22 +47,38 @@ function SearchResults() {
     }
   }, [query]);
 
-  // 🔹 Link Repair Function
-  const getSafeLink = (link: string, source: string) => {
-    if (!link) return "#"; // No link? Stay here.
+  // 🔹 SMART LINK FIXER 🔹
+  // 1. Tries to fix relative links (/dp/...)
+  // 2. Unlocks Google Redirects (/url?url=...)
+  // 3. Fallback: Searches Google Shopping if link is broken
+  const getSafeLink = (link: string, source: string, title: string) => {
     
-    // If it's already a full URL, use it
-    if (link.startsWith("http") || link.startsWith("https")) return link;
+    // Case 0: No link? Google Shopping Search for this item.
+    if (!link) {
+        return `https://www.google.com/search?tbm=shop&q=${encodeURIComponent(title)}`;
+    }
 
-    // If it's a relative link (starts with /), attach the correct domain
+    // Case 1: Is it a Google Redirect? (Common in scrapers)
+    // Example: /url?url=https://amazon...
+    if (link.startsWith("/url?") || link.includes("google.com/url")) {
+        const parts = link.split("url=");
+        if (parts.length > 1) {
+            const cleanUrl = parts[1].split("&")[0];
+            return decodeURIComponent(cleanUrl);
+        }
+    }
+
+    // Case 2: Is it already a full URL?
+    if (link.startsWith("http")) return link;
+
+    // Case 3: Is it a relative store link? (e.g. /dp/B08...)
     const lowerSource = source ? source.toLowerCase() : "";
-    
-    if (lowerSource.includes("amazon")) return `https://www.amazon.in${link}`;
-    if (lowerSource.includes("flipkart")) return `https://www.flipkart.com${link}`;
-    if (lowerSource.includes("croma")) return `https://www.croma.com${link}`;
-    if (lowerSource.includes("reliance")) return `https://www.reliancedigital.in${link}`;
+    if (lowerSource.includes("amazon") && !link.startsWith("http")) return `https://www.amazon.in${link}`;
+    if (lowerSource.includes("flipkart") && !link.startsWith("http")) return `https://www.flipkart.com${link}`;
+    if (lowerSource.includes("croma") && !link.startsWith("http")) return `https://www.croma.com${link}`;
 
-    return link; // Fallback
+    // Case 4: If we still don't know what it is, Google Shopping Search.
+    return `https://www.google.com/search?tbm=shop&q=${encodeURIComponent(title)}`;
   };
 
   const stores = ["All", ...Array.from(new Set(results.map(r => r.source)))];
@@ -180,8 +196,8 @@ function SearchResults() {
             {displayResults.map((item, index) => {
               const isCheapest = getPriceValue(item.price) === lowestPrice;
               
-              // 🔹 Generate the Safe Link
-              const safeLink = getSafeLink(item.link, item.source);
+              // 🔹 Generate the Fail-Safe Link
+              const safeLink = getSafeLink(item.link, item.source, item.name);
 
               return (
                 <div 
@@ -245,7 +261,7 @@ function SearchResults() {
                        </div>
                        
                        <a 
-                         href={safeLink} // 🔹 Uses the safe link
+                         href={safeLink} 
                          target="_blank"
                          rel="noopener noreferrer"
                          className={`text-white w-10 h-10 rounded-full flex items-center justify-center hover:scale-110 transition-transform
