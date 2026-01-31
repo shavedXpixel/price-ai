@@ -4,16 +4,15 @@ import { useRouter } from "next/navigation";
 import { onAuthStateChanged, signOut, User } from "firebase/auth";
 import { auth } from "./firebase"; 
 import Link from "next/link";
-import { useTheme } from "next-themes"; // 🔹 Imported Theme Hook
+import { useTheme } from "next-themes"; 
 
 export default function Home() {
   const [query, setQuery] = useState("");
   const [user, setUser] = useState<User | null>(null); 
   const router = useRouter();
-  const { theme, setTheme } = useTheme(); // 🔹 Hook to control Dark Mode
-  const [mounted, setMounted] = useState(false); // Fix for hydration errors
+  const { theme, setTheme } = useTheme(); 
+  const [mounted, setMounted] = useState(false); 
 
-  // 🔹 Check if user is logged in & Fix Hydration
   useEffect(() => {
     setMounted(true);
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
@@ -34,7 +33,6 @@ export default function Home() {
     }
   };
 
-  // Prevent hydration mismatch (wait for client load)
   if (!mounted) return null;
 
   return (
@@ -43,7 +41,7 @@ export default function Home() {
       {/* 🔹 Top Navigation Bar */}
       <div className="absolute top-6 right-6 flex items-center gap-4">
         
-        {/* 🌙 Dark Mode Toggle (Added Back) */}
+        {/* 🌙 Dark Mode Toggle */}
         <button
           onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
           className="w-12 h-12 rounded-full flex items-center justify-center text-xl transition-all
@@ -58,6 +56,16 @@ export default function Home() {
         {user ? (
           // IF LOGGED IN
           <div className="flex items-center gap-4">
+            {/* 🔹 NEW: Wishlist Button */}
+            <Link href="/wishlist">
+                <button className="hidden md:block px-4 py-2 rounded-xl font-bold text-gray-600 dark:text-gray-300 bg-[#f0f4f8] dark:bg-[#1e293b] 
+                shadow-[6px_6px_12px_#cdd4db,-6px_-6px_12px_#ffffff] 
+                dark:shadow-[6px_6px_12px_#0f172a,-6px_-6px_12px_#2d3b55] 
+                hover:scale-105 transition-transform">
+                ❤️ Wishlist
+                </button>
+            </Link>
+
             <span className="font-bold text-gray-700 dark:text-gray-200 hidden md:block">
               {user.displayName ? `Hi, ${user.displayName.split(' ')[0]}` : "Welcome"} 👋
             </span>

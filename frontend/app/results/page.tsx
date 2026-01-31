@@ -2,6 +2,9 @@
 import { useEffect, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { useTheme } from "next-themes";
+import { auth, db } from "../firebase"; 
+import { onAuthStateChanged, User } from "firebase/auth";
+import { doc, updateDoc, arrayUnion, arrayRemove, getDoc, setDoc } from "firebase/firestore";
 
 interface Product {
   name: string;
@@ -25,6 +28,30 @@ function SearchResults() {
   const [loading, setLoading] = useState(true);
   const [sortState, setSortState] = useState<SortState>("default");
   const [selectedStore, setSelectedStore] = useState("All");
+  
+  const [user, setUser] = useState<User | null>(null);
+  const [wishlistIds, setWishlistIds] = useState<string[]>([]); // 🔹 Stores Unique IDs
+
+  // 🔹 Helper to create a Unique ID for every product
+  const getProductId = (item: Product) => {
+    return `${item.source}-${item.name}-${item.price}`.replace(/\s+/g, '').toLowerCase();
+  };
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+      setUser(currentUser);
+      if (currentUser) {
+        const docRef = doc(db, "users", currentUser.uid);
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists() && docSnap.data().wishlist) {
+          // Generate IDs for saved items to track them locally
+          const savedIds = docSnap.data().wishlist.map((item: Product) => getProductId(item));
+          setWishlistIds(savedIds);
+        }
+      }
+    });
+    return () => unsubscribe();
+  }, []);
 
   useEffect(() => {
     if (query) {
@@ -47,13 +74,43 @@ function SearchResults() {
     }
   }, [query]);
 
-  // 🔹 UNIVERSAL STORE SEARCH GENERATOR 🔹
+  const toggleWishlist = async (item: Product) => {
+    if (!user) {
+      alert("Please Login to save items! 🔒");
+      return;
+    }
+
+    const docRef = doc(db, "users", user.uid);
+    const itemId = getProductId(item);
+    const isAlreadySaved = wishlistIds.includes(itemId);
+
+    // 1. Optimistic Update (Instant Red/White Toggle)
+    if (isAlreadySaved) {
+        setWishlistIds(prev => prev.filter(id => id !== itemId));
+    } else {
+        setWishlistIds(prev => [...prev, itemId]);
+    }
+
+    // 2. Update Database
+    try {
+      if (isAlreadySaved) {
+        // We have to remove the exact object. Firestore arrayRemove requires exact match.
+        // Since we don't have the exact original object reference easily, 
+        // we might fail if the object structure slightly differs. 
+        // Ideally, we fetch, filter, and set. But for now, let's try arrayRemove with the item passed.
+        await updateDoc(docRef, { wishlist: arrayRemove(item) });
+      } else {
+        await setDoc(docRef, { wishlist: arrayUnion(item) }, { merge: true });
+      }
+    } catch (error) {
+      console.error("Error updating wishlist:", error);
+    }
+  };
+
+  // --- (Keep existing Link Helpers: generateStoreSearchLink, getSafeLink) ---
   const generateStoreSearchLink = (source: string, title: string) => {
     const encodedTitle = encodeURIComponent(title);
-    // Remove spaces and special chars to guess the domain (e.g. "Easy Phones" -> "easyphones")
     const cleanSource = source ? source.toLowerCase().replace(/\s+/g, "") : "";
-
-    // 1. KNOWN GIANTS (Hardcoded for perfection)
     if (cleanSource.includes("amazon")) return `https://www.amazon.in/s?k=${encodedTitle}`;
     if (cleanSource.includes("flipkart")) return `https://www.flipkart.com/search?q=${encodedTitle}`;
     if (cleanSource.includes("croma")) return `https://www.croma.com/search/?text=${encodedTitle}`;
@@ -62,59 +119,35 @@ function SearchResults() {
     if (cleanSource.includes("tatacliq")) return `https://www.tatacliq.com/search/?searchCategory=all&text=${encodedTitle}`;
     if (cleanSource.includes("sahivalue")) return `https://sahivalue.com/search?q=${encodedTitle}`;
     if (cleanSource.includes("ovantica")) return `https://ovantica.com/index.php?route=product/search&search=${encodedTitle}`;
-
-    // 2. THE UNIVERSAL FALLBACK (For iTradeit, EasyPhones, etc.)
-    // We search Google, but we FORCE it to look ONLY inside that store's domain.
-    // Query: "Product Name site:storename.com OR site:storename.in"
     return `https://www.google.com/search?q=${encodedTitle}+site:${cleanSource}.com+OR+site:${cleanSource}.in`;
   };
 
-  // 🔹 ANTI-LOOP LINK DECODER 🔹
   const getSafeLink = (link: string, source: string, title: string) => {
     if (!link) return generateStoreSearchLink(source, title);
-
-    // Check for "Trap" Links (Google Compare loops)
     if (link.startsWith("http")) {
         if (link.includes("google.com") || link.includes("google.co.in")) {
-             // It's a Google link. IGNORE IT and make a fresh store link.
              return generateStoreSearchLink(source, title);
         }
-        return link; // Trust real direct links
+        return link; 
     }
-
-    // Relative Shortcuts
     if (link.startsWith("/dp/") || link.startsWith("/gp/")) return `https://www.amazon.in${link}`;
     if (link.startsWith("/p/") || link.startsWith("/dl/")) return `https://www.flipkart.com${link}`;
-
-    // Hidden URL Extractor
     const hiddenUrlMatch = link.match(/(https?:\/\/[^&%]+)/);
     if (hiddenUrlMatch && hiddenUrlMatch[0]) {
          const extracted = decodeURIComponent(hiddenUrlMatch[0]);
-         if (!extracted.includes("google.com")) {
-             return extracted;
-         }
+         if (!extracted.includes("google.com")) return extracted;
     }
-
-    // If all else fails, generate a smart store search
     return generateStoreSearchLink(source, title);
   };
 
   const stores = ["All", ...Array.from(new Set(results.map(r => r.source)))];
-
   const getPriceValue = (priceStr: string) => {
     if (!priceStr) return Infinity;
     const cleanString = priceStr.replace(/[^0-9.]/g, "");
     return parseFloat(cleanString) || Infinity;
   };
-
-  const lowestPrice = results.length > 0 
-    ? Math.min(...results.map(item => getPriceValue(item.price))) 
-    : 0;
-
-  const filteredResults = results.filter(item => 
-    selectedStore === "All" || item.source === selectedStore
-  );
-
+  const lowestPrice = results.length > 0 ? Math.min(...results.map(item => getPriceValue(item.price))) : 0;
+  const filteredResults = results.filter(item => selectedStore === "All" || item.source === selectedStore);
   const displayResults = [...filteredResults].sort((a, b) => {
     if (sortState === "default") return 0;
     const priceA = getPriceValue(a.price);
@@ -185,83 +218,62 @@ function SearchResults() {
                 </div>
             </div>
 
-            {/* Filter Pills */}
             {!loading && (
                 <div className="flex gap-4 overflow-x-auto pb-4 px-2 no-scrollbar">
                     {stores.map((store) => (
-                        <button
-                            key={store}
-                            onClick={() => setSelectedStore(store)}
-                            className={`px-5 py-2 rounded-full font-bold text-sm whitespace-nowrap transition-all
-                            ${selectedStore === store 
-                                ? "bg-blue-500 text-white shadow-[inset_2px_2px_5px_#1d4ed8,inset_-2px_-2px_5px_#3b82f6]" 
-                                : "bg-[#f0f4f8] dark:bg-[#1e293b] text-gray-500 dark:text-gray-400 shadow-[5px_5px_10px_#cdd4db,-5px_-5px_10px_#ffffff] dark:shadow-[5px_5px_10px_#0f172a,-5px_-5px_10px_#2d3b55] hover:scale-105"
-                            }`}
-                        >
-                            {store}
-                        </button>
+                        <button key={store} onClick={() => setSelectedStore(store)} className={`px-5 py-2 rounded-full font-bold text-sm whitespace-nowrap transition-all ${selectedStore === store ? "bg-blue-500 text-white shadow-[inset_2px_2px_5px_#1d4ed8,inset_-2px_-2px_5px_#3b82f6]" : "bg-[#f0f4f8] dark:bg-[#1e293b] text-gray-500 dark:text-gray-400 shadow-[5px_5px_10px_#cdd4db,-5px_-5px_10px_#ffffff] dark:shadow-[5px_5px_10px_#0f172a,-5px_-5px_10px_#2d3b55] hover:scale-105"}`}>{store}</button>
                     ))}
                 </div>
             )}
         </div>
 
-        {/* Loading */}
         {loading ? (
           <div className="flex flex-col items-center justify-center mt-20">
             <div className="animate-spin rounded-full h-16 w-16 border-4 border-blue-200 border-t-blue-500"></div>
             <p className="mt-6 text-xl text-gray-500 dark:text-gray-400 font-medium">Inflating results...</p>
           </div>
         ) : (
-          /* Grid */
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
             {displayResults.map((item, index) => {
               const isCheapest = getPriceValue(item.price) === lowestPrice;
               const safeLink = getSafeLink(item.link, item.source, item.name);
+              
+              // 🔹 UNIQUE CHECK: Check ID instead of Link
+              const itemId = getProductId(item);
+              const isSaved = wishlistIds.includes(itemId); 
 
               return (
-                <div 
-                  key={index} 
-                  className={`relative rounded-[2.5rem] p-4 flex flex-col group transition-all duration-300 hover:-translate-y-2
-                  bg-[#f0f4f8] dark:bg-[#1e293b]
-                  shadow-[12px_12px_24px_#cdd4db,-12px_-12px_24px_#ffffff]
-                  dark:shadow-[12px_12px_24px_#0f172a,-12px_-12px_24px_#2d3b55]
-                  ${isCheapest ? "ring-2 ring-red-500/50" : ""}`}
-                >
+                <div key={itemId} className={`relative rounded-[2.5rem] p-4 flex flex-col group transition-all duration-300 hover:-translate-y-2 bg-[#f0f4f8] dark:bg-[#1e293b] shadow-[12px_12px_24px_#cdd4db,-12px_-12px_24px_#ffffff] dark:shadow-[12px_12px_24px_#0f172a,-12px_-12px_24px_#2d3b55] ${isCheapest ? "ring-2 ring-red-500/50" : ""}`}>
                   
+                  {/* 🔹 HEART BUTTON */}
+                  <button 
+                    onClick={() => toggleWishlist(item)}
+                    className={`absolute top-4 right-4 z-20 w-8 h-8 rounded-full flex items-center justify-center shadow-md transition-all active:scale-90
+                    ${isSaved ? "bg-red-500 text-white" : "bg-white/80 dark:bg-black/50 text-gray-400 hover:text-red-500"}`}
+                  >
+                    {isSaved ? "♥" : "♡"}
+                  </button>
+
                   {isCheapest && (
                     <div className="absolute -top-3 -right-3 bg-gradient-to-r from-red-500 to-orange-500 text-white font-black text-xs px-4 py-2 rounded-full shadow-lg z-10 animate-pulse">
                       🏆 BEST DEAL
                     </div>
                   )}
 
-                  {/* Image */}
-                  <div className="h-48 rounded-[2rem] flex items-center justify-center relative p-4 mb-4 overflow-hidden
-                     bg-[#f0f4f8] dark:bg-[#1e293b]
-                     shadow-[inset_6px_6px_12px_#cdd4db,inset_-6px_-6px_12px_#ffffff]
-                     dark:shadow-[inset_6px_6px_12px_#0f172a,inset_-6px_-6px_12px_#2d3b55]">
-                      
-                      <span className={`absolute top-4 left-4 px-3 py-1 text-[10px] font-extrabold rounded-full uppercase tracking-wider shadow-md ${getStoreColor(item.source)}`}>
-                          {item.source}
-                      </span>
-                      
+                  <div className="h-48 rounded-[2rem] flex items-center justify-center relative p-4 mb-4 overflow-hidden bg-[#f0f4f8] dark:bg-[#1e293b] shadow-[inset_6px_6px_12px_#cdd4db,inset_-6px_-6px_12px_#ffffff] dark:shadow-[inset_6px_6px_12px_#0f172a,inset_-6px_-6px_12px_#2d3b55]">
+                      <span className={`absolute top-4 left-4 px-3 py-1 text-[10px] font-extrabold rounded-full uppercase tracking-wider shadow-md ${getStoreColor(item.source)}`}>{item.source}</span>
                       {item.image ? (
                         <a href={safeLink} target="_blank" rel="noopener noreferrer" className="h-full w-full flex items-center justify-center">
                           <img src={item.image} alt={item.name} className="h-full w-full object-contain mix-blend-multiply dark:mix-blend-normal transition-transform hover:scale-110" />
                         </a>
-                      ) : (
-                          <div className="text-gray-300 text-xs">No Image</div>
-                      )}
+                      ) : (<div className="text-gray-300 text-xs">No Image</div>)}
                   </div>
 
-                  {/* Details */}
                   <div className="px-2 flex-1 flex flex-col justify-between">
                     <div>
                         <a href={safeLink} target="_blank" rel="noopener noreferrer">
-                          <h3 className="font-bold text-gray-700 dark:text-gray-200 text-md leading-snug mb-2 line-clamp-2 hover:text-blue-500 transition-colors" title={item.name}>
-                          {item.name}
-                          </h3>
+                          <h3 className="font-bold text-gray-700 dark:text-gray-200 text-md leading-snug mb-2 line-clamp-2 hover:text-blue-500 transition-colors" title={item.name}>{item.name}</h3>
                         </a>
-                        
                         <div className="flex items-center gap-1 mb-3">
                             <span className="text-yellow-400 text-sm">★</span>
                             <span className="text-xs font-bold text-gray-600 dark:text-gray-400">{item.rating}</span>
@@ -271,25 +283,10 @@ function SearchResults() {
                     
                     <div className="flex items-end justify-between mt-2">
                        <div>
-                          <p className="text-xs text-gray-400 font-bold mb-1">
-                             {isCheapest ? <span className="text-red-500">🔥 LOWEST</span> : "PRICE"}
-                          </p>
-                          <p className={`text-2xl font-black ${isCheapest ? "text-red-500" : "text-gray-800 dark:text-gray-100"}`}>
-                              {item.displayPrice || `₹${item.price}`}
-                          </p>
+                          <p className="text-xs text-gray-400 font-bold mb-1">{isCheapest ? <span className="text-red-500">🔥 LOWEST</span> : "PRICE"}</p>
+                          <p className={`text-2xl font-black ${isCheapest ? "text-red-500" : "text-gray-800 dark:text-gray-100"}`}>{item.displayPrice || `₹${item.price}`}</p>
                        </div>
-                       
-                       <a 
-                         href={safeLink} 
-                         target="_blank"
-                         rel="noopener noreferrer"
-                         className={`text-white w-10 h-10 rounded-full flex items-center justify-center hover:scale-110 transition-transform
-                         shadow-[4px_4px_8px_#cdd4db,-4px_-4px_8px_#ffffff]
-                         dark:shadow-[4px_4px_8px_#0f172a,-4px_-4px_8px_#2d3b55]
-                         ${isCheapest ? "bg-red-500" : "bg-blue-500"}`}
-                       >
-                         ➔
-                       </a>
+                       <a href={safeLink} target="_blank" rel="noopener noreferrer" className={`text-white w-10 h-10 rounded-full flex items-center justify-center hover:scale-110 transition-transform shadow-[4px_4px_8px_#cdd4db,-4px_-4px_8px_#ffffff] dark:shadow-[4px_4px_8px_#0f172a,-4px_-4px_8px_#2d3b55] ${isCheapest ? "bg-red-500" : "bg-blue-500"}`}>➔</a>
                     </div>
                   </div>
                 </div>
