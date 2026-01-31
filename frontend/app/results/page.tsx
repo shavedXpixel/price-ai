@@ -10,8 +10,8 @@ interface Product {
   source: string;
   link: string;
   image: string;
-  rating?: number; // Optional rating
-  reviews?: number; // Optional review count
+  rating?: number;
+  reviews?: number;
 }
 
 type SortState = "default" | "asc" | "desc";
@@ -24,8 +24,6 @@ function SearchResults() {
   const [results, setResults] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [sortState, setSortState] = useState<SortState>("default");
-  
-  // 🔹 New: Store Filter State
   const [selectedStore, setSelectedStore] = useState("All");
 
   useEffect(() => {
@@ -34,7 +32,6 @@ function SearchResults() {
       fetch(`https://price-ai.onrender.com/search/${query}`)
         .then((res) => res.json())
         .then((data) => {
-          // Add mock ratings for the "Pro" look (Random 3.5 to 5.0 stars)
           const enrichedResults = data.results.map((item: any) => ({
             ...item,
             rating: (Math.random() * (5 - 3.5) + 3.5).toFixed(1),
@@ -50,10 +47,8 @@ function SearchResults() {
     }
   }, [query]);
 
-  // 🔹 Get Unique Stores for the Filter Menu
   const stores = ["All", ...Array.from(new Set(results.map(r => r.source)))];
 
-  // Helper: Extract price
   const getPriceValue = (priceStr: string) => {
     if (!priceStr) return Infinity;
     const cleanString = priceStr.replace(/[^0-9.]/g, "");
@@ -64,7 +59,6 @@ function SearchResults() {
     ? Math.min(...results.map(item => getPriceValue(item.price))) 
     : 0;
 
-  // 🔹 Combined Filtering (Store + Sort)
   const filteredResults = results.filter(item => 
     selectedStore === "All" || item.source === selectedStore
   );
@@ -88,12 +82,11 @@ function SearchResults() {
     return "Sort by Price ⇅";
   };
 
-  // 🔹 Store Color Helper
   const getStoreColor = (source: string) => {
-    if (source.toLowerCase().includes("amazon")) return "bg-[#FF9900] text-black"; // Amazon Orange
-    if (source.toLowerCase().includes("flipkart")) return "bg-[#2874F0] text-white"; // Flipkart Blue
-    if (source.toLowerCase().includes("croma")) return "bg-[#00E9BF] text-black"; // Croma Teal
-    return "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200"; // Default
+    if (source.toLowerCase().includes("amazon")) return "bg-[#FF9900] text-black";
+    if (source.toLowerCase().includes("flipkart")) return "bg-[#2874F0] text-white";
+    if (source.toLowerCase().includes("croma")) return "bg-[#00E9BF] text-black";
+    return "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200";
   };
 
   return (
@@ -102,8 +95,6 @@ function SearchResults() {
         
         {/* Header Section */}
         <div className="mb-8 flex flex-col gap-6">
-            
-            {/* Top Bar */}
             <div className="flex flex-col md:flex-row gap-4 items-center justify-between p-6 rounded-[2rem] transition-all
             bg-[#f0f4f8] dark:bg-[#1e293b]
             shadow-[10px_10px_20px_#cdd4db,-10px_-10px_20px_#ffffff]
@@ -139,7 +130,7 @@ function SearchResults() {
                 </div>
             </div>
 
-            {/* 🔹 Store Filter Pills (Horizontal Scroll) */}
+            {/* Store Filter Pills */}
             {!loading && (
                 <div className="flex gap-4 overflow-x-auto pb-4 px-2 no-scrollbar">
                     {stores.map((store) => (
@@ -187,19 +178,20 @@ function SearchResults() {
                     </div>
                   )}
 
-                  {/* Image */}
+                  {/* 🔹 CLICKABLE IMAGE */}
                   <div className="h-48 rounded-[2rem] flex items-center justify-center relative p-4 mb-4 overflow-hidden
                      bg-[#f0f4f8] dark:bg-[#1e293b]
                      shadow-[inset_6px_6px_12px_#cdd4db,inset_-6px_-6px_12px_#ffffff]
                      dark:shadow-[inset_6px_6px_12px_#0f172a,inset_-6px_-6px_12px_#2d3b55]">
                       
-                      {/* 🔹 Colored Store Badge */}
                       <span className={`absolute top-4 left-4 px-3 py-1 text-[10px] font-extrabold rounded-full uppercase tracking-wider shadow-md ${getStoreColor(item.source)}`}>
                           {item.source}
                       </span>
                       
                       {item.image ? (
-                          <img src={item.image} alt={item.name} className="h-full w-full object-contain mix-blend-multiply dark:mix-blend-normal" />
+                        <a href={item.link} target="_blank" rel="noopener noreferrer" className="h-full w-full flex items-center justify-center">
+                          <img src={item.image} alt={item.name} className="h-full w-full object-contain mix-blend-multiply dark:mix-blend-normal transition-transform hover:scale-110" />
+                        </a>
                       ) : (
                           <div className="text-gray-300 text-xs">No Image</div>
                       )}
@@ -208,11 +200,13 @@ function SearchResults() {
                   {/* Details */}
                   <div className="px-2 flex-1 flex flex-col justify-between">
                     <div>
-                        <h3 className="font-bold text-gray-700 dark:text-gray-200 text-md leading-snug mb-2 line-clamp-2" title={item.name}>
-                        {item.name}
-                        </h3>
+                        {/* 🔹 CLICKABLE TITLE */}
+                        <a href={item.link} target="_blank" rel="noopener noreferrer">
+                          <h3 className="font-bold text-gray-700 dark:text-gray-200 text-md leading-snug mb-2 line-clamp-2 hover:text-blue-500 transition-colors" title={item.name}>
+                          {item.name}
+                          </h3>
+                        </a>
                         
-                        {/* 🔹 Star Rating Row */}
                         <div className="flex items-center gap-1 mb-3">
                             <span className="text-yellow-400 text-sm">★</span>
                             <span className="text-xs font-bold text-gray-600 dark:text-gray-400">{item.rating}</span>
@@ -229,6 +223,8 @@ function SearchResults() {
                               {item.displayPrice || `₹${item.price}`}
                           </p>
                        </div>
+                       
+                       {/* 🔹 CLICKABLE ARROW BUTTON (Existing) */}
                        <a 
                          href={item.link} 
                          target="_blank"
