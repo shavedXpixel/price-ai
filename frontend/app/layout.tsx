@@ -22,6 +22,11 @@ export const metadata: Metadata = {
   keywords: ["Price Comparison", "AI Shopping", "Deal Tracker", "Amazon vs Flipkart", "PriceAI"],
   authors: [{ name: "Priyansu Dash" }],
   creator: "Priyansu Dash",
+
+  // 🔹 GOOGLE VERIFICATION (Added this block)
+  verification: {
+    google: "fl9ZTnKp55v3pD2Xea35wzlloWFGG0c2wsDe_rwwcvI",
+  },
   
   // Facebook / WhatsApp / LinkedIn Preview
   openGraph: {
