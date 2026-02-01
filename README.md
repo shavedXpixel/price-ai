@@ -43,6 +43,26 @@ A cutting-edge visual experience featuring:
 
 ---
 
+## 🏗️ System Architecture
+
+FutureShop is built using a modern decoupled architecture to ensure speed and scalability.
+
+
+
+### 🛰️ Data Flow
+1. **Frontend (React/Next.js):** Captures user search queries and manages the premium UI/UX.
+2. **API Layer (Python/FastAPI):** Receives the query and triggers high-speed scraping logic to fetch real-time prices.
+3. **Database (Firebase/Firestore):** Stores persistent user data such as:
+   * **Profiles:** Names and contact info.
+   * **Commerce Data:** Carts, Wishlists, and Order History.
+4. **Auth (Firebase Auth):** Handles secure session management.
+
+### 🔐 Security Implementation
+* **Env Variables:** All Firebase configuration is injected via Vercel Environment Variables to prevent credential leakage.
+* **Domain Whitelisting:** API keys are restricted to `futureshop.online` to prevent unauthorized cross-origin requests.
+
+  ---
+
 ## 🚀 Getting Started
 
 ### 1. Clone the repository
