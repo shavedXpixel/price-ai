@@ -1,7 +1,8 @@
 "use client";
 import { useState } from "react";
-import { auth } from "../firebase";
+import { auth, db } from "../firebase"; // 🔹 Added db import
 import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth";
+import { doc, setDoc } from "firebase/firestore"; // 🔹 Added Firestore imports
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { motion } from "framer-motion";
@@ -15,8 +16,24 @@ export default function SignupPage() {
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      // 1. Create User in Authentication
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-      await updateProfile(userCredential.user, { displayName: name });
+      const user = userCredential.user;
+
+      // 2. Update Auth Profile Name
+      await updateProfile(user, { displayName: name });
+
+      // 3. 🔹 SAVE TO DATABASE (Fixes "Anonymous" issue)
+      await setDoc(doc(db, "users", user.uid), {
+        uid: user.uid,
+        name: name,
+        email: email,
+        role: "user", // Default role
+        createdAt: new Date().toISOString(),
+        cart: [],
+        searchHistory: []
+      });
+
       router.push("/");
     } catch (error: any) {
       alert(error.message);
