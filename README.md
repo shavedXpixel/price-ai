@@ -78,12 +78,13 @@ npm install
 Create a .env.local file and add your Firebase credentials:
 
 Code snippet
+```bash
 NEXT_PUBLIC_FIREBASE_API_KEY=your_key
 
 NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your_domain
 
 NEXT_PUBLIC_FIREBASE_PROJECT_ID=your_id
-
+```
 ### 4. Run Development Server
 ```bash
 npm run dev
