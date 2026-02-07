@@ -17,6 +17,7 @@ app.add_middleware(
 #  NEW: Visual "Backend Active" Page
 # ---------------------------------------------------------
 @app.get("/", response_class=HTMLResponse)
+@app.head("/", response_class=HTMLResponse) # <--- ADD THIS LINE
 def home():
     html_content = """
     <!DOCTYPE html>
