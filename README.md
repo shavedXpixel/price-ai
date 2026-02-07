@@ -69,19 +69,26 @@ FutureShop is built using a modern decoupled architecture to ensure speed and sc
 ```bash
 git clone [https://github.com/your-username/futureshop.git](https://github.com/your-username/futureshop.git)
 cd futureshop
-2. Install dependencies
-Bash
+```
+### 2. Install dependencies
+```bash
 npm install
-3. Environment Setup
+```
+### 3. Environment Setup
 Create a .env.local file and add your Firebase credentials:
 
 Code snippet
+```bash
 NEXT_PUBLIC_FIREBASE_API_KEY=your_key
+
 NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your_domain
+
 NEXT_PUBLIC_FIREBASE_PROJECT_ID=your_id
-4. Run Development Server
-Bash
+```
+### 4. Run Development Server
+```bash
 npm run dev
+```
 🎨 UI/UX Philosophy
 The interface follows an Apple-inspired "frosted glass" aesthetic. Every button uses separate glow-offsets to provide visual feedback:
 
