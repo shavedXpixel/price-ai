@@ -23,18 +23,31 @@ jobs:
           cp -r backend hf_deploy/
           cp Dockerfile hf_deploy/
           
-          # 3. Go inside the clean folder
+          # 3. Create the required Hugging Face config file (The ID Card)
+          cat <<EOF > hf_deploy/README.md
+          ---
+          title: Price AI API
+          emoji: ⚡
+          colorFrom: purple
+          colorTo: blue
+          sdk: docker
+          app_port: 7860
+          pinned: false
+          ---
+          EOF
+          
+          # 4. Go inside the clean folder
           cd hf_deploy
           
-          # 4. Turn this folder into a brand new Git repository with NO history
+          # 5. Turn this folder into a brand new Git repository with NO history
           git init
           git checkout -b main
           git config user.email "action@github.com"
           git config user.name "GitHub Action"
           
-          # 5. Pack up these specific files
+          # 6. Pack up these specific files
           git add .
-          git commit -m "Clean deploy to Hugging Face"
+          git commit -m "Clean deploy with README config"
           
-          # 6. Force push this fresh slate to your Space
+          # 7. Force push this fresh slate to your Space
           git push https://Priyansu123:$HF_TOKEN@huggingface.co/spaces/Priyansu123/price-ai-api main -f
