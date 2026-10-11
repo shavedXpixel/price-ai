@@ -7,7 +7,7 @@
 
 **FutureShop** is a premium, high-performance commerce engine designed to help users find the absolute lowest prices across the web. Built with a stunning Glassmorphic UI and real-time AI data scraping, it transforms the shopping experience into an intelligent, data-driven journey.
 
-🌐 **Live Demo:** [futureshop.online](https://futureshop.online)
+🌐 **Live Demo:** [Price-AI](https://price-ai-fxox.vercel.app)
 
 ---
 
