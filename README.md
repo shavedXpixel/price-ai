@@ -1,6 +1,6 @@
-# 🚀 FutureShop.online | AI-Powered Price Intelligence
+# 🚀 AI-Powered Price Intelligence
 
-![FutureShop Banner](https://img.shields.io/badge/FutureShop-AI--Commerce-blue?style=for-the-badge)
+
 ![Next.js](https://img.shields.io/badge/Next.js-14-black?style=for-the-badge&logo=next.js)
 ![Firebase](https://img.shields.io/badge/Firebase-v10-orange?style=for-the-badge&logo=firebase)
 ![Tailwind CSS](https://img.shields.io/badge/Tailwind-UI-38B2AC?style=for-the-badge&logo=tailwind-css)
